@@ -1,7 +1,9 @@
-#include "Game.h"
+﻿#include "Game.h"
 
 #include <iostream>
 #include <random>
+#include <cassert>
+#include <string>
 
 using namespace std;
 
@@ -45,15 +47,15 @@ Game::Game(
 	}
 
 	// fill neighbour mine count
-	for (auto i = 0, i_e = _size.x - 1; i <= i_e; ++i)
+	for (auto i = 0, i_end = _size.x - 1; i <= i_end; ++i)
 	{
-		for (auto j = 0, j_e = _size.y - 1; j <= j_e; ++j)
+		for (auto j = 0, j_end = _size.y - 1; j <= j_end; ++j)
 		{
 			auto& cell = get_cell({i, j});
 			if (cell.has_mine) continue; // do not count neighbour mine count on mined cells
-			for (auto k = (i != 0 ? i - 1 : i), k_e = (i_e != i ? i + 1 : i); k <= k_e; ++k)
+			for (auto k = max(0, i - 1), k_end = min(i_end, i + 1); k <= k_end; ++k)
 			{
-				for (auto l = (j != 0 ? j - 1 : j), l_e = (j_e != j ? j + 1 : j); l <= l_e; ++l)
+				for (auto l = max(0, j - 1), l_end = min(j_end, j + i); l <= l_end; ++l)
 				{
 					if (k == i && l == j) continue; // skip self
 					if (get_cell({k, l}).has_mine)
@@ -68,7 +70,7 @@ Game::Game(
 
 void Game::start()
 {
-	cout << "MineSweeper Game" << endl;
+	cout << u8"MineSweeper Game" << endl;
 	cout << "* = mine, f = flag, - = undiscovered cell" << endl;
 	cout << "To make your turn, please enter X and Y after space (valid from 1 to " << cells_.size() << ")" << endl;
 	cout << "After them you can enter \"f\" to put or remove flag from that cell." << endl;
@@ -79,20 +81,23 @@ void Game::start()
 
 		cout << "Available flags count: " << flags_ << endl;
 		cout << "Enter X Y [f]: ";
+
 		string input;
 		getline(cin, input, '\n');
 		char flag = 0;
 		Pos pos{};
-		if (sscanf(input.data(), "%d %d %c", &pos.x, &pos.y, &flag) < 2)
+		int count = sscanf(input.data(), "%d %d %c", &pos.x, &pos.y, &flag);
+		if (count < 2 || count > 3 || pos.x < 1 || pos.y < 1 || pos.x > int(cells_.size()) || pos.y > int(cells_[0].size()))
 		{
 			cout << "Wrong input. Try again." << endl;
+			continue;
 		}
 
 		res = step({pos.x - 1, pos.y - 1}, flag == 'f');
 	}
 
-	cout << (res > 0 ? "You win! Great!!!" : "Boom! You're lose!") << endl;
 	print(true);
+	cout << (res > 0 ? "You win! Great!!!" : "Boom! You're lose!") << endl;
 }
 
 Cell& Game::get_cell(
@@ -106,32 +111,32 @@ void Game::print(
 	bool _all) const
 {
 	using namespace std;
-	cout << " ";
+	cout << u8" ";
 	for(int j = 0, j_e = int(cells_[0].size()) - 1; j <= j_e; ++j)
 	{
 		cout << j + 1;
 	}
-	cout << endl << "┌";
+	cout << endl << u8"┌";
 	for(int j = 0, j_e = int(cells_[0].size()) - 1; j <= j_e; ++j)
 	{
-		cout << "─";
+		cout << u8"─";
 	}
-	cout << "┐" << endl << flush;
+	cout << u8"┐" << endl << flush;
 
 	for(auto i = 0, i_e = int(cells_.size()) - 1; i <= i_e; ++i)
 	{
-		cout << "│";
+		cout << u8"│";
 		for (const auto& c : cells_[i])
 		{
 			if (_all || c.is_opened)
 			{
 				if (c.has_mine)
 				{
-					cout << "*";
+					cout << u8"*";
 				}
 				else if (c.has_flag)
 				{
-					cout << "f";
+					cout << u8"f";
 				}
 				else if (!_all && c.neighbour_mine_count)
 				{
@@ -139,38 +144,34 @@ void Game::print(
 				}
 				else
 				{
-					cout << " ";
+					cout << u8" ";
 				}
 			}
 			else if (c.has_flag)
 			{
-				cout << "F";
+				cout << u8"f";
 			}
 			else
 			{
-				cout << "-";
+				cout << u8"-";
 			}
 		}
-		cout << "│ " << i + 1 << endl;
+		cout << u8"│ " << i + 1 << endl;
 	}
 
-	cout << "└";
+	cout << u8"└";
 	for(int j = 0, j_e = int(cells_[0].size()) - 1; j <= j_e; ++j)
 	{
-		cout << "─";
+		cout << u8"─";
 	}
-	cout << "┘" << endl << flush;
+	cout << u8"┘" << endl << flush;
 }
 
 int Game::step(
 	const Pos& _pos,
 	bool _flag_cell)
 {
-	if (_pos.x < 0 || _pos.y < 0 || _pos.x >= int(cells_.size()) || _pos.y >= int(cells_[0].size()))
-	{
-		cout << "Wrong input. Try again." << endl;
-		return 0;
-	}
+	assert(_pos.x >= 0 && _pos.y >= 0 && _pos.x < int(cells_.size()) && _pos.y < int(cells_[0].size()));
 
 	auto& cell = get_cell(_pos);
 	if (cell.is_opened)
@@ -205,10 +206,10 @@ int Game::step(
 	cell.is_opened = true;
 	if (cell.neighbour_mine_count == 0)
 	{
-		const auto i = _pos.x, i_e = int(cells_.size()) - 1, j = _pos.y, j_e = int(cells_[0].size()) - 1;
-		for (auto k = (i != 0 ? i - 1 : i), k_e = (i_e != i ? i + 1 : i); k <= k_e; ++k)
+		const auto i = _pos.x, i_end = int(cells_.size()) - 1, j = _pos.y, j_end = int(cells_[0].size()) - 1;
+		for (auto k = max(0, i - 1), k_end = min(i_end, i + 1); k <= k_end; ++k)
 		{
-			for (auto l = (j != 0 ? j - 1 : j), l_e = (j_e != j ? j + 1 : j); l <= l_e; ++l)
+			for (auto l = max(0, j - 1), l_end = min(j_end, j + i); l <= l_end; ++l)
 			{
 				if (k == i && l == j) continue; // skip self
 				if (get_cell({k, l}).has_flag || get_cell({k, l}).is_opened) continue; // skip flagged and already opened;
@@ -218,10 +219,10 @@ int Game::step(
 		}
 	}
 
-	// if all non mined mines is opened - win
-	for (auto i = 0, i_e = int(cells_.size()) - 1; i <= i_e; ++i)
+	// if all non mined cells is opened - win
+	for (auto i = 0, i_end = int(cells_.size()) - 1; i <= i_end; ++i)
 	{
-		for (auto j = 0, j_e = int(cells_[0].size()) - 1; j <= j_e; ++j)
+		for (auto j = 0, j_end = int(cells_[i].size()) - 1; j <= j_end; ++j)
 		{
 			if (get_cell({i, j}).has_mine || get_cell({i, j}).is_opened) continue;
 			return 0;
